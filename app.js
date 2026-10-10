@@ -141,20 +141,29 @@
     }
   }
   function startGPS() {
-    if (!('geolocation' in navigator)) { gpsFail('Din telefon kan ikke finde din position.'); return; }
+    if (!('geolocation' in navigator)) { gpsFail('Din telefon eller browser kan ikke finde din placering.'); return; }
     show('viewNear'); $('gpsStatus').textContent = '📡 Finder din position …';
     $('nearestCard').innerHTML = '<div class="empty">Vent et øjeblik – vi finder, hvor du er.</div>';
     if (S.watch !== null) navigator.geolocation.clearWatch(S.watch);
     S.watch = navigator.geolocation.watchPosition(
       pos => { hint(null); setMe(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, 'gps');
         if (pos.coords.heading != null && !isNaN(pos.coords.heading) && S.headingSrc !== 'compass') { S.heading = pos.coords.heading; S.headingSrc = 'gps'; } },
-      err => gpsFail(err.code === 1 ? 'Du har ikke givet lov til at bruge din position.' : 'Din position kunne ikke findes lige nu.'),
+      err => gpsFail(err.code === 1 ? 'Du har ikke givet lov til at bruge din placering.' : 'Din placering kunne ikke findes lige nu.', err.code),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
   }
-  function gpsFail(msg) {
+  function gpsFail(msg, code) {
     if (S.me && S.me.src === 'gps') { $('gpsStatus').textContent = '⚠️ GPS-signalet er svagt – viser seneste position.'; return; }
-    show('viewNear'); tapMode(msg + ' Tryk på kortet, der hvor du står.');
+    show('viewNear'); tapMode('Tryk på kortet, der hvor du står.');
+    if (S.me) return; // har allerede valgt på kortet
+    document.querySelector('#viewNear .filters').hidden = true; $('gpsStatus').textContent = '';
+    $('nearestCard').innerHTML = `<div class="card off-card" id="locOff">
+      <div class="label">📍 Placering er slået fra</div>
+      <p class="off-text">${esc(msg)} Appen kan derfor ikke se, hvor du er.</p>
+      <button class="btn-big primary" data-help="1">❓ Hjælp: slå placering til</button>
+      <button class="btn-big secondary" data-retry="1">🔄 Prøv igen</button>
+      <p class="small">Eller tryk på kortet, der hvor du står.</p></div>`;
   }
+  function retryGPS() { S.tap = false; hint(null); startGPS(); }
   function tapMode(msg) {
     S.tap = true; show('viewNear');
     hint(msg || 'Tryk på kortet, der hvor du står.');
@@ -170,7 +179,7 @@
   function show(v) { ['viewStart', 'viewNear', 'viewNav'].forEach(x => $(x).hidden = x !== v); }
   function showNear() {
     if (S.nav || !S.me) return;
-    show('viewNear');
+    show('viewNear'); document.querySelector('#viewNear .filters').hidden = false;
     $('gpsStatus').textContent = S.me.src === 'gps'
       ? `📍 Din position er fundet${S.me.acc ? ` (± ${Math.round(S.me.acc)} m)` : ''}.`
       : '👆 Du har valgt din position på kortet. Tryk igen for at flytte den.';
@@ -197,6 +206,8 @@
   $('panel').addEventListener('click', e => {
     const n = e.target.closest('[data-nav]'); if (n) return startNav(+n.dataset.nav);
     const s = e.target.closest('[data-show]'); if (s) return pick(+s.dataset.show);
+    if (e.target.closest('[data-help]')) return helpDialog();
+    if (e.target.closest('[data-retry]')) return retryGPS();
     if (e.target.closest('[data-unpick]')) { S.pick = null; map.closePopup(); showNear(); }
   });
   document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
@@ -316,11 +327,67 @@
     });
     d.showModal ? d.showModal() : d.setAttribute('open', '');
   }
+  /* ---------- Hjælp: slå placering til ---------- */
+  const ICO = {
+    gear: '<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#8e8e93"/><circle cx="24" cy="24" r="12" fill="none" stroke="#fff" stroke-width="5" stroke-dasharray="5 3.4"/><circle cx="24" cy="24" r="5" fill="#fff"/></svg>',
+    hand: '<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#1a73e8"/><path d="M17 34V20a2.5 2.5 0 015 0v-6a2.5 2.5 0 015 0v5a2.5 2.5 0 015 0v2a2.5 2.5 0 015 0v8c0 6-4 9-9 9h-2c-4 0-6-2-9-6z" fill="#fff"/></svg>',
+    loc: '<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#1a73e8"/><path d="M35 12L13 22l10 3 3 10z" fill="#fff"/></svg>',
+    safari: '<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#fff" stroke="#bbb"/><circle cx="24" cy="24" r="16" fill="#1a8cff"/><path d="M31 17l-5 9-9 5 5-9z" fill="#fff"/><path d="M31 17l-5 9-4-4z" fill="#ff3b30"/></svg>',
+    aa: '<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#e5e5ea"/><text x="24" y="31" font-size="20" font-family="system-ui,sans-serif" font-weight="700" text-anchor="middle" fill="#111"><tspan font-size="13">a</tspan>A</text></svg>',
+    reload: '<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#1e7b34"/><path d="M34 22a10 10 0 10-3 9" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M36 13v10h-10z" fill="#fff"/></svg>',
+    compass: '<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#5856d6"/><circle cx="24" cy="24" r="14" fill="none" stroke="#fff" stroke-width="3"/><path d="M24 12l4 12h-8z" fill="#ff3b30"/><path d="M24 36l-4-12h8z" fill="#fff"/></svg>',
+    pin: '<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#1a73e8"/><path d="M24 38s-10-10-10-17a10 10 0 0120 0c0 7-10 17-10 17z" fill="#fff"/><circle cx="24" cy="21" r="4" fill="#1a73e8"/></svg>',
+    lock: '<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#e5e5ea"/><rect x="14" y="22" width="20" height="15" rx="3" fill="#333"/><path d="M18 22v-4a6 6 0 0112 0v4" fill="none" stroke="#333" stroke-width="3.5"/></svg>',
+    chrome: '<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#fff" stroke="#bbb"/><circle cx="24" cy="24" r="15" fill="#db4437"/><path d="M24 24L11 31.5A15 15 0 0024 39z" fill="#0f9d58"/><path d="M24 24l13-7.5A15 15 0 0124 39z" fill="#f4b400"/><path d="M24 24L11 31.5A15 15 0 019 24a15 15 0 012-7.5z" fill="#0f9d58"/><circle cx="24" cy="24" r="7" fill="#fff"/><circle cx="24" cy="24" r="5" fill="#4285f4"/></svg>'
+  };
+  const step = (n, ico, html) => `<li class="hstep"><span class="hico" aria-hidden="true">${ICO[ico]}</span><div><b class="hnum">${n}.</b> ${html}</div></li>`;
+  const HELP_IOS = `<ol class="hsteps">
+    ${step(1, 'gear', 'Åbn <b>Indstillinger</b> på din iPhone.')}
+    ${step(2, 'hand', 'Tryk <b>Anonymitet og sikkerhed</b> → <b>Lokalitetstjenester</b>. Sørg for, at <b>Lokalitetstjenester</b> er slået <b>til</b> (grøn).')}
+    ${step(3, 'safari', 'Rul ned og tryk <b>Safari-websteder</b>. Vælg <b>Når appen er i brug</b>, og slå <b>Nøjagtig lokalitet</b> til.')}
+    ${step(4, 'aa', 'Gå tilbage til Safari. Tryk på <b>aA</b> (eller <b>⋯</b>) i adresselinjen → <b>Webstedsindstillinger</b> → <b>Lokalitet</b>: vælg <b>Tillad</b>.')}
+    ${step(5, 'reload', 'Genindlæs siden, og tryk <b>Prøv igen</b> nedenfor.')}
+    </ol>
+    <div class="hnote">${ICO.compass}<div><b>Pilen (kompasset):</b> Hvis pilen ikke drejer med telefonen, så gå til <b>Indstillinger → Safari → Bevægelse og retning</b> og slå det til.</div></div>`;
+  const HELP_AND = `<ol class="hsteps">
+    ${step(1, 'gear', 'Åbn <b>Indstillinger</b> på din telefon.')}
+    ${step(2, 'pin', 'Tryk <b>Placering</b>, og slå <b>Brug placering</b> til.')}
+    ${step(3, 'chrome', 'Gå tilbage til <b>Chrome</b>.')}
+    ${step(4, 'lock', 'Tryk på <b>lås-ikonet</b> (eller indstillings-ikonet) til venstre for adressen → <b>Tilladelser</b> → <b>Placering</b> → <b>Tillad</b>.')}
+    ${step(5, 'reload', 'Genindlæs siden, og tryk <b>Prøv igen</b> nedenfor.')}
+    </ol>`;
+  const isAndroid = () => /android/i.test(navigator.userAgent);
+  function helpDialog() {
+    const tab = isAndroid() ? 'and' : 'ios';
+    const d = $('dlg'); if (d.open) d.close();
+    dialog(`<h2>Slå placering til</h2>
+      <p>Telefonen spørger kun én gang. Har du sagt nej, skal du selv slå det til sådan her:</p>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" class="tab" data-tab="ios" aria-selected="${tab === 'ios'}">iPhone</button>
+        <button type="button" role="tab" class="tab" data-tab="and" aria-selected="${tab === 'and'}">Android</button>
+      </div>
+      <div class="tabpanel" data-panel="ios" ${tab === 'ios' ? '' : 'hidden'}>${HELP_IOS}</div>
+      <div class="tabpanel" data-panel="and" ${tab === 'and' ? '' : 'hidden'}>${HELP_AND}</div>
+      <p class="small">Din placering bliver kun på din telefon.</p>`,
+      [['🔄 Prøv igen', retryGPS], ['Luk', null]]);
+    d.classList.add('help');
+  }
+  $('dlgBody').addEventListener('click', e => {
+    const t = e.target.closest('[data-tab]');
+    if (t) {
+      $('dlgBody').querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b === t));
+      $('dlgBody').querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== t.dataset.tab);
+      return;
+    }
+    if (e.target.closest('[data-help]')) helpDialog();
+  });
+  $('dlg').addEventListener('close', () => $('dlg').classList.remove('help'));
   const M = DATA.metadata, gen = new Date(M.generated).toLocaleDateString('da-DK', { day: 'numeric', month: 'long', year: 'numeric' });
   $('btnInfo').addEventListener('click', () => dialog(`<h2>Om appen</h2>
     <p>Kortet viser ${M.counts.total} toiletter i København og på Frederiksberg. Data er fra ${gen}.</p>
     <p><b>Farver:</b> 🟢 grøn = åbent nu, ⚫ grå = lukket nu, 🔵 blå = åbningstid ukendt.</p>
     <p><b>Din position</b> bliver på din telefon. Appen har ingen konti og ingen sporing. Kortbillederne hentes fra OpenStreetMap. Kun hvis du selv vælger "Tegn ruten ad gaderne", sendes start og mål til en rute-tjeneste.</p>
+    <button type="button" class="btn-big secondary" data-help="1">❓ Hjælp: slå placering til</button>
     <p><b>Pas på:</b> Åbningstider kan være forkerte, og nogle toiletter kan være lukkede eller mangle. Tiderne for kommunens toiletter er omtrentlige.</p>
     <p class="small"><b>Kilder:</b> Københavns Kommune (åbne data, CC0) · Frederiksberg Kommune (CC BY 4.0) · © OpenStreetMap-bidragydere (ODbL 1.0). Kort: © OpenStreetMap. Rute: OSRM / FOSSGIS. Kortprogram: Leaflet.</p>`));
 
@@ -335,5 +402,5 @@
   setInterval(() => { if (!S.nav) { drawMarkers(); showNear(); } }, 5 * 60 * 1000); // åbent/lukket ændrer sig med tiden
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
 
-  window.__app = { S, F, nearest, dist, visible, startNav, stopNav, setMe, fmtWalk, map, markers };
+  window.__app = { helpDialog, retryGPS, S, F, nearest, dist, visible, startNav, stopNav, setMe, fmtWalk, map, markers };
 })();
