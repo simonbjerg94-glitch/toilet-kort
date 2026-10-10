@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Find toilet – København og Frederiksberg</title>
+<meta name="description" content="Find det nærmeste offentlige toilet i København og på Frederiksberg.">
+<meta name="theme-color" content="#0b5394">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="vendor/markercluster/MarkerCluster.css">
+<link rel="stylesheet" href="vendor/markercluster/MarkerCluster.Default.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>🚻 Find toilet</h1>
+  <button id="btnInfo" class="btn-small" aria-label="Om appen">Om appen</button>
+</header>
+
+<main id="main">
+  <div id="map" aria-label="Kort over toiletter"></div>
+  <div id="mapHint" class="map-hint" hidden></div>
+
+  <section id="panel" class="panel" aria-live="polite">
+    <!-- Start -->
+    <div id="viewStart" class="view">
+      <p class="lead">Find det nærmeste offentlige toilet i København og på Frederiksberg.</p>
+      <button id="btnFind" class="btn-big primary">📍 Find nærmeste toilet</button>
+      <button id="btnTap" class="btn-big secondary">👆 Vælg selv på kortet</button>
+      <p class="small">Din position bliver kun på din telefon. Den sendes ikke nogen steder hen.</p>
+    </div>
+
+    <!-- Nærmeste -->
+    <div id="viewNear" class="view" hidden>
+      <div id="gpsStatus" class="gps-status"></div>
+      <div class="filters" role="group" aria-label="Vis kun">
+        <button class="chip" data-filter="free" aria-pressed="false">Gratis</button>
+        <button class="chip" data-filter="wheelchair" aria-pressed="false">♿ Handicap</button>
+        <button class="chip" data-filter="changing" aria-pressed="false">👶 Puslebord</button>
+        <button class="chip" data-filter="open" aria-pressed="false">🕒 Åbent nu</button>
+      </div>
+      <div id="nearestCard"></div>
+      <h2 class="h-others" id="othersTitle">Andre muligheder</h2>
+      <ol id="othersList" class="others"></ol>
+    </div>
+
+    <!-- Vis vej -->
+    <div id="viewNav" class="view" hidden>
+      <div class="nav-head">
+        <div class="arrow-wrap"><div id="navArrow" class="arrow" aria-hidden="true">➤</div></div>
+        <div>
+          <div id="navDist" class="nav-dist">– m</div>
+          <div id="navTime" class="nav-time"></div>
+          <div id="navDir" class="nav-dir"></div>
+        </div>
+      </div>
+      <div id="navName" class="nav-name"></div>
+      <div id="navNote" class="small"></div>
+      <button id="btnRoute" class="btn-big secondary">🗺️ Tegn ruten ad gaderne</button>
+      <div class="row2">
+        <a id="lnkGoogle" class="btn-big ext" target="_blank" rel="noopener">Google Maps</a>
+        <a id="lnkApple" class="btn-big ext" target="_blank" rel="noopener">Apple Kort</a>
+      </div>
+      <button id="btnStop" class="btn-big ghost">✖ Stop vejvisning</button>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <div id="dlgBody"></div>
+  <form method="dialog"><button class="btn-big primary" id="dlgOk">OK</button></form>
+</dialog>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/markercluster/leaflet.markercluster.js"></script>
+<script src="hours.js"></script>
+<script src="data/toiletter.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

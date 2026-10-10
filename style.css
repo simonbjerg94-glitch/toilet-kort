@@ -1,0 +1,59 @@
+:root{--blue:#0b5394;--green:#1e7b34;--grey:#6b6b6b;--bg:#fff;--fg:#111;--line:#d0d7de;font-size:19px}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--fg);background:var(--bg)}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--blue);color:#fff;padding-top:max(8px,env(safe-area-inset-top))}
+.topbar h1{font-size:1.35rem;margin:0}
+.btn-small{font-size:1rem;padding:10px 14px;border-radius:10px;border:2px solid #fff;background:transparent;color:#fff}
+main{display:flex;flex-direction:column;height:calc(100% - 56px)}
+#map{flex:0 0 42%;min-height:220px}
+.panel{flex:1;overflow-y:auto;padding:14px 14px max(18px,env(safe-area-inset-bottom));border-top:3px solid var(--blue)}
+.lead{font-size:1.2rem;margin:4px 0 14px}
+.small{font-size:.95rem;color:#333}
+.btn-big{display:block;width:100%;font-size:1.25rem;font-weight:700;padding:18px;margin:10px 0;border-radius:14px;border:3px solid var(--blue);text-align:center;text-decoration:none;cursor:pointer;min-height:64px}
+.primary{background:var(--blue);color:#fff}
+.secondary{background:#fff;color:var(--blue)}
+.ghost{background:#f3f3f3;color:#222;border-color:#999}
+.ext{background:#fff;color:#111;border-color:#444;font-size:1.1rem}
+.row2{display:flex;gap:10px}.row2 .btn-big{flex:1}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}
+.chip{font-size:1.05rem;padding:12px 14px;border-radius:30px;border:2px solid var(--blue);background:#fff;color:var(--blue);min-height:48px}
+.chip[aria-pressed="true"]{background:var(--blue);color:#fff}
+.gps-status{font-size:.95rem;color:#333;margin-bottom:4px}
+.card{border:3px solid var(--green);border-radius:16px;padding:14px;background:#f2faf3}
+.card .label{font-size:1rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.03em}
+.card .name{font-size:1.4rem;font-weight:800;margin:4px 0}
+.card .dist{font-size:1.3rem;font-weight:700}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.badge{font-size:.95rem;padding:4px 10px;border-radius:8px;background:#e8eef5;color:#123}
+.badge.open{background:#d7f0dc;color:#0d4d1d}.badge.closed{background:#f6dcdc;color:#7a1010}.badge.unknown{background:#eee;color:#444}
+.h-others{font-size:1.15rem;margin:18px 0 6px}
+.others{list-style:none;padding:0;margin:0}
+.others li button{width:100%;text-align:left;font-size:1.1rem;padding:14px;margin:6px 0;border-radius:12px;border:2px solid var(--line);background:#fff;color:#111;min-height:60px}
+.others .o-name{font-weight:700;display:block}
+.others .o-meta{color:#333;font-size:1rem}
+.empty{font-size:1.1rem;padding:12px;background:#fff6dc;border-radius:12px}
+.map-hint{position:absolute;top:66px;left:10px;right:10px;z-index:1000;background:#fff6dc;border:2px solid #b78a00;border-radius:12px;padding:12px;font-size:1.1rem;font-weight:700;text-align:center}
+.nav-head{display:flex;gap:16px;align-items:center}
+.arrow-wrap{width:110px;height:110px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;flex:0 0 110px}
+.arrow{font-size:64px;color:#fff;transform:rotate(-90deg);transition:transform .4s;line-height:1}
+.nav-dist{font-size:2.2rem;font-weight:800}
+.nav-time{font-size:1.25rem;font-weight:700}
+.nav-dir{font-size:1.05rem}
+.nav-name{font-size:1.2rem;font-weight:700;margin:10px 0 2px}
+.arrived{font-size:1.6rem;font-weight:800;color:var(--green)}
+/* Markører */
+.wc-icon{background:var(--blue);color:#fff;border:3px solid #fff;border-radius:50%;width:34px!important;height:34px!important;display:flex!important;align-items:center;justify-content:center;font-weight:800;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.wc-icon.open{background:var(--green)}.wc-icon.closed{background:var(--grey)}
+.wc-icon.sel{outline:4px solid #ffb300;transform:scale(1.25)}
+.me-dot{width:22px!important;height:22px!important;border-radius:50%;background:#1a73e8;border:4px solid #fff;box-shadow:0 0 0 2px #1a73e8}
+.leaflet-popup-content{font-size:1rem;min-width:210px}
+.leaflet-popup-content h3{margin:0 0 4px;font-size:1.15rem}
+.leaflet-popup-content .btn-big{font-size:1.05rem;padding:12px;min-height:48px;margin:6px 0}
+.leaflet-control-attribution{font-size:12px}
+dialog{max-width:560px;width:calc(100% - 24px);border:none;border-radius:16px;padding:18px;font-size:1.05rem}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog h2{margin-top:0}
+.marker-cluster div{font-size:15px;font-weight:800}
+@media (min-width:900px){main{flex-direction:row}#map{flex:1 1 60%;height:100%}.panel{flex:0 0 420px;border-top:none;border-left:3px solid var(--blue)}}
+.open-alt{text-align:left;border-color:var(--green);color:#0d4d1d;font-size:1.1rem}
