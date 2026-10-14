@@ -1,6 +1,6 @@
 /* Service worker: appen og toiletdata virker uden net. Kortbilleder og rute kræver internet. */
-const VERSION = 'toilet-v2-2026-10-10';
-const CORE = ['./', 'index.html', 'style.css', 'app.js', 'hours.js', 'data/toiletter.js', 'data/toiletter.geojson',
+const VERSION = 'toilet-v3-2026-10-14';
+const CORE = ['./', 'index.html', 'style.css', 'app.js', 'hours.js', 'config.js', 'reviews.js', 'data/toiletter.js', 'data/toiletter.geojson',
   'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
   'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css', 'vendor/markercluster/leaflet.markercluster.js',
   'vendor/markercluster/MarkerCluster.css', 'vendor/markercluster/MarkerCluster.Default.css',

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Moderation – Find toilet</title>
+<style>
+:root{--pri:#1652f0;--ink:#0b1220;--muted:#4f5a6e;--line:#e3e7ef;--soft:#f4f6fa;--ok:#0d8a4c;--bad:#b42318}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,"Inter","Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--soft);font-size:16px}
+header{background:#fff;border-bottom:1px solid var(--line);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:2}
+h1{font-size:1.2rem;margin:0}main{max-width:900px;margin:0 auto;padding:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
+button,input{font:inherit}button{min-height:44px;padding:0 16px;border-radius:12px;border:1.5px solid var(--line);background:#fff;font-weight:700;cursor:pointer}
+button.pri{background:var(--pri);color:#fff;border-color:var(--pri)}button.ok{background:var(--ok);color:#fff;border-color:var(--ok)}button.bad{color:var(--bad);border-color:#f1c4bf}
+input{width:100%;min-height:46px;border:1.5px solid var(--line);border-radius:12px;padding:0 12px;margin:4px 0 12px}
+.tabs{display:flex;gap:6px;margin:8px 0}.tabs button[aria-selected=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.item{display:grid;grid-template-columns:160px 1fr;gap:14px;align-items:start}.item img{width:160px;height:160px;object-fit:cover;border-radius:12px;background:var(--soft)}
+.item.txt{grid-template-columns:1fr}.meta{color:var(--muted);font-size:.9rem}.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.stars{color:#f5a623;font-size:1.2rem;letter-spacing:2px}.empty{color:var(--muted);text-align:center;padding:30px}
+.msg{padding:12px;border-radius:12px;background:#fff4dc;margin:10px 0}
+</style>
+</head>
+<body>
+<header><h1>Moderation · Find toilet</h1><button id="out" hidden>Log ud</button></header>
+<main>
+  <div id="cfg" class="msg" hidden>Supabase er ikke sat op endnu. Udfyld <code>config.js</code> (se README).</div>
+  <section id="login" class="card" hidden>
+    <h2>Log ind</h2><p class="meta">Brug den moderator-bruger, du har oprettet i Supabase (Authentication → Users).</p>
+    <form id="lf"><label>E-mail<input id="em" type="email" autocomplete="username" required></label>
+    <label>Adgangskode<input id="pw" type="password" autocomplete="current-password" required></label>
+    <button class="pri" type="submit">Log ind</button></form><div id="lerr" class="msg" hidden></div>
+  </section>
+  <section id="app" hidden>
+    <div class="tabs" role="tablist"><button role="tab" data-v="pending" aria-selected="true">Venter</button><button role="tab" data-v="approved" aria-selected="false">Godkendt</button><button role="tab" data-v="rejected" aria-selected="false">Afvist</button></div>
+    <h2>Billeder <span id="np" class="meta"></span></h2><div id="photos"></div>
+    <h2>Kommentarer <span id="nc" class="meta"></span></h2><div id="comments"></div>
+  </section>
+</main>
+<script src="config.js"></script>
+<script src="data/toiletter.js"></script>
+<script>
+(function () {
+  'use strict';
+  const C = window.TOILET_CONFIG || {}, U = String(C.supabaseUrl || '').replace(/\/+$/, ''), K = C.supabaseAnonKey || '';
+  const $ = id => document.getElementById(id), esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const NAMES = new Map((window.TOILET_DATA ? TOILET_DATA.features : []).map(f => [f.properties.id, f.properties.name + (f.properties.address ? ', ' + f.properties.address : '')]));
+  if (!U || !K) { $('cfg').hidden = false; return; }
+  let tok = JSON.parse(sessionStorage.getItem('mod_tok') || 'null'), view = 'pending';
+  const H = x => Object.assign({ apikey: K, Authorization: 'Bearer ' + (tok ? tok.access_token : K) }, x || {});
+  async function api(path, opt) { const r = await fetch(U + path, Object.assign({}, opt, { headers: H((opt || {}).headers) })); if (r.status === 401) { logout(); throw new Error('Logget ud'); } if (!r.ok) throw new Error(r.status + ' ' + await r.text()); return r.status === 204 ? null : r.json(); }
+  function logout() { tok = null; sessionStorage.removeItem('mod_tok'); show(); }
+  function show() { $('login').hidden = !!tok; $('app').hidden = !tok; $('out').hidden = !tok; if (tok) load(); }
+  $('lf').addEventListener('submit', async e => {
+    e.preventDefault(); $('lerr').hidden = true;
+    try {
+      const r = await fetch(U + '/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: K, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: $('em').value, password: $('pw').value }) });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error_description || j.msg || 'Forkert e-mail eller adgangskode');
+      tok = j; sessionStorage.setItem('mod_tok', JSON.stringify({ access_token: j.access_token }));
+      const me = await api('/rest/v1/moderators?select=user_id'); if (!me.length) { $('lerr').textContent = 'Brugeren er ikke moderator. Kør insert-linjen nederst i migration.sql.'; $('lerr').hidden = false; tok = null; sessionStorage.removeItem('mod_tok'); return; }
+      show();
+    } catch (err) { $('lerr').textContent = err.message; $('lerr').hidden = false; }
+  });
+  $('out').onclick = logout;
+  document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { view = b.dataset.v; document.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-selected', x === b)); load(); });
+  async function img(path) { const r = await fetch(U + '/storage/v1/object/authenticated/toilet-photos/' + path, { headers: H() }); return r.ok ? URL.createObjectURL(await r.blob()) : ''; }
+  const when = d => new Date(d).toLocaleString('da-DK', { dateStyle: 'medium', timeStyle: 'short' });
+  const acts = (kind, id, path) => `<div class="acts">${view !== 'approved' ? `<button class="ok" data-act="approved" data-k="${kind}" data-id="${id}">Godkend</button>` : ''}${view !== 'rejected' ? `<button class="bad" data-act="rejected" data-k="${kind}" data-id="${id}">Afvis</button>` : ''}<button class="bad" data-act="delete" data-k="${kind}" data-id="${id}" data-path="${esc(path || '')}">Slet helt</button></div>`;
+  async function load() {
+    const ph = await api(`/rest/v1/photos?select=id,toilet_id,path,width,height,created_at&status=eq.${view}&order=created_at.asc&limit=50`);
+    const cm = await api(`/rest/v1/ratings?select=id,toilet_id,stars,comment,created_at&status=eq.${view}&comment=not.is.null&order=created_at.asc&limit=100`);
+    $('np').textContent = '(' + ph.length + ')'; $('nc').textContent = '(' + cm.length + ')';
+    $('photos').innerHTML = ph.length ? ph.map(p => `<div class="card item" data-row="p${p.id}"><img alt="Indsendt billede" data-src="${esc(p.path)}"><div><b>${esc(NAMES.get(p.toilet_id) || 'Toilet #' + p.toilet_id)}</b><div class="meta">${when(p.created_at)} · ${p.width}×${p.height}</div>${acts('photos', p.id, p.path)}</div></div>`).join('') : '<div class="empty">Ingen billeder her.</div>';
+    $('comments').innerHTML = cm.length ? cm.map(c => `<div class="card item txt" data-row="r${c.id}"><div><span class="stars">${'★'.repeat(c.stars)}${'☆'.repeat(5 - c.stars)}</span> <b>${esc(NAMES.get(c.toilet_id) || 'Toilet #' + c.toilet_id)}</b></div><p>${esc(c.comment)}</p><div class="meta">${when(c.created_at)}</div>${acts('ratings', c.id)}</div>`).join('') : '<div class="empty">Ingen kommentarer her.</div>';
+    document.querySelectorAll('img[data-src]').forEach(async im => { im.src = await img(im.dataset.src); });
+  }
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const { act, k, id, path } = b.dataset; b.disabled = true;
+    try {
+      if (act === 'delete') {
+        if (!confirm('Slet helt? Det kan ikke fortrydes.')) { b.disabled = false; return; }
+        if (k === 'photos' && path) await fetch(U + '/storage/v1/object/toilet-photos/' + path, { method: 'DELETE', headers: H() });
+        await api(`/rest/v1/${k}?id=eq.${id}`, { method: 'DELETE' });
+      } else await api(`/rest/v1/${k}?id=eq.${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ status: act }) });
+      const row = document.querySelector(`[data-row="${k === 'photos' ? 'p' : 'r'}${id}"]`); if (row) row.remove();
+    } catch (err) { alert('Fejl: ' + err.message); b.disabled = false; }
+  });
+  show();
+})();
+</script>
+</body>
+</html>

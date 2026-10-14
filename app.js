@@ -47,25 +47,49 @@
     return visible().map(t => ({ t, d: dist(me, t) })).sort((a, b) => a.d - b.d).slice(0, n || 5);
   }
   function title(t) {
-    const p = t.p; let n = p.name || 'Toilet';
-    if (/^(toilet|offentligt toilet|pissoir)$/i.test(n) && p.address) n = n + ', ' + p.address.split(',')[0];
+    const p = t.p; let n = p.name && p.name !== 'Toilet' ? p.name : 'Offentligt toilet';
+    if (/^(toilet|offentligt toilet|pissoir)$/i.test(n) && p.address) n = (p.name || 'Toilet') + ', ' + p.address.split(',')[0];
     return n;
   }
-  function badges(t) {
-    const p = t.p, s = st(t), b = [];
-    b.push(`<span class="badge ${s.state}">${s.state === 'open' ? '🟢 ' : s.state === 'closed' ? '🔴 ' : '⚪ '}${esc(s.text)}</span>`);
-    if (p.fee === false) b.push('<span class="badge">Gratis</span>'); else if (p.fee === true) b.push('<span class="badge">Koster penge</span>');
-    if (p.wheelchair === true) b.push('<span class="badge">♿ Handicaptoilet</span>');
-    if (p.changing_table === true) b.push('<span class="badge">👶 Puslebord</span>');
-    if (p.staffed) b.push('<span class="badge">Med personale</span>');
-    if (p.type === 'Pissoir') b.push('<span class="badge">Kun pissoir</span>');
-    return `<div class="badges">${b.join('')}</div>`;
+  const SV = {
+    wheel: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="4" r="1.8"/><path d="M11 7v6h6l2 5"/><path d="M8.5 10.5a5.5 5.5 0 1 0 7 7"/></svg>',
+    coin: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M14.5 9.2a3 3 0 0 0-2.5-1.2c-1.7 0-2.8.9-2.8 2s1 1.6 2.8 2 2.8 1 2.8 2.1-1.2 2-2.8 2a3 3 0 0 1-2.6-1.3M12 6.5v1.5M12 16v1.5"/></svg>',
+    baby: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="2.5"/><path d="M4 20c0-4 2-7 5-7s5 3 5 7M15 11h5v9"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    nav: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 21 3l-8 18-2-8z"/></svg>',
+    wc: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="4.5" r="1.8"/><path d="M10 8h4l1 6h-2l-1 7M11 21l-1-7h-2"/></svg>',
+    user: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/></svg>',
+    chev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>',
+    back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>'
+  };
+  /* Handicapadgang: Ja / Nej / Ukendt. Kommunernes "nej" betyder ofte bare "ikke registreret" → forsigtig tekst. */
+  function access(p) {
+    const muni = p.source.includes('kk') || p.source.includes('frb');
+    const w = p.wheelchair === true ? { k: 'yes', t: 'Handicapvenligt', s: 'Handicapvenligt' }
+      : p.wheelchair === false ? (muni ? { k: 'no', t: 'Ikke angivet som handicapvenligt', s: 'Ikke angivet' } : { k: 'no', t: 'Ikke handicapvenligt (ifølge OpenStreetMap)', s: 'Ikke handicapvenligt' })
+      : { k: 'unknown', t: 'Handicapadgang ukendt', s: 'Adgang ukendt' };
+    const f = p.fee === false ? { k: 'yes', t: 'Gratis' } : p.fee === true ? { k: 'pay', t: 'Betaling' } : { k: 'unknown', t: 'Pris ukendt' };
+    return { w, f, baby: p.changing_table === true };
   }
+  function badges(t, mini) {
+    const p = t.p, a = access(p), b = [];
+    b.push(`<span class="badge w-${a.w.k}" data-b="wheel">${SV.wheel}${esc(mini ? a.w.s : a.w.t)}</span>`);
+    b.push(`<span class="badge f-${a.f.k}" data-b="fee">${SV.coin}${esc(a.f.t)}</span>`);
+    if (a.baby) b.push(`<span class="badge" data-b="baby">${SV.baby}Puslebord</span>`);
+    if (!mini && p.staffed) b.push(`<span class="badge">${SV.user}Med personale</span>`);
+    if (!mini && p.type === 'Pissoir') b.push('<span class="badge">Kun pissoir</span>');
+    return `<div class="badges${mini ? ' mini' : ''}">${b.join('')}</div>`;
+  }
+  function openLine(t) { const s = st(t); return `<span class="os ${s.state}"><i></i>${esc(s.text)}</span>`; }
   const SRC = { kk: 'Københavns Kommune', frb: 'Frederiksberg Kommune', osm: 'OpenStreetMap' };
   const gmaps = t => `https://www.google.com/maps/dir/?api=1&destination=${t.lat},${t.lon}&travelmode=walking`;
   const amaps = t => `https://maps.apple.com/?daddr=${t.lat},${t.lon}&dirflg=w`;
 
   /* ---------- Kort ---------- */
+  // Bundarket dækker den nederste del af kortet på mobil → hold punkter i den synlige del
+  const wide = () => window.innerWidth >= 900;
+  const fitPad = () => wide() ? { paddingTopLeft: [460, 40], paddingBottomRight: [40, 40] } : { paddingTopLeft: [24, 140], paddingBottomRight: [24, ($('panel').offsetHeight || 0) + 24] };
+  function centerVisible(ll, z) { map.setView(ll, z, { animate: false }); if (!wide()) map.panBy([0, Math.round((($('panel').offsetHeight || 0) - 120) / 2)], { animate: false }); else map.panBy([-220, 0], { animate: false }); }
   const map = L.map('map', { zoomControl: true, tap: true }).setView(CENTER, 13);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -76,23 +100,26 @@
   const markers = new Map();
   function icon(t) {
     const s = st(t).state, sel = S.selected === t.id ? ' sel' : '';
-    return L.divIcon({ className: `wc-icon ${s}${sel}`, html: 'WC', iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -14] });
+    return L.divIcon({ className: `wc-icon ${s}${sel}`, html: SV.wc, iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -14] });
   }
   function popupHtml(t) {
     const d = S.me ? ` · ${fmtDist(dist(S.me, t))}` : '';
-    return `<h3>${esc(title(t))}</h3><div>${esc(st(t).text)}${d}</div><div class="small">Se mere nedenfor ↓</div>`;
+    return `<h3>${esc(title(t))}</h3><div>${openLine(t)}${d}</div><div class="small">Se mere nedenfor</div>`;
   }
   function cardHtml(t, d, label) {
     const p = t.p, far = d != null && d > 15000;
-    return `<div class="card" data-id="${t.id}">
+    const s = st(t);
+    return `<article class="card" data-id="${t.id}" aria-label="${esc(label + ': ' + title(t))}">
       <div class="label">${label}</div>
-      <div class="name">${esc(title(t))}</div>
-      ${d != null ? `<div class="dist">${fmtDist(d)} · ${fmtWalk(d)}</div>` : ''}
-      <div>${esc(p.address || '')}</div>${badges(t)}
-      ${p.note ? `<div class="small">${esc(p.note)}</div>` : ''}
+      <h3 class="name">${esc(title(t))}</h3>
+      <div class="sub">${esc(p.address || 'Ingen adresse')}${d != null ? ` · <b class="dist">${fmtDist(d)} · ${fmtWalk(d)}</b>` : ''}</div>
+      ${badges(t)}
+      <div class="info-row">${SV.clock}<div><div class="os-big ${s.state}">${s.state === 'open' ? 'Åbent nu' : s.state === 'closed' ? 'Lukket nu' : 'Åbningstid'}</div><div class="small">${esc(p.hours_text || s.text)}${p.season === 'vinterlukket' ? ' · lukket om vinteren' : ''}</div></div></div>
+      ${p.note ? `<div class="small note">${esc(p.note)}</div>` : ''}
       ${far ? '<div class="empty">Du er langt fra København og Frederiksberg. Appen har kun toiletter derfra.</div>' : ''}
-      <button class="btn-big primary" data-nav="${t.id}">🧭 Vis vej</button>
-      <div class="small">Kilde: ${p.source.map(s => SRC[s]).join(' + ')}</div></div>`;
+      <button class="btn-big primary" data-nav="${t.id}">${SV.nav}Vis vej${d != null ? ` · ${walkMin(d)} min` : ''}</button>
+      ${window.Reviews ? Reviews.blockHtml(t.id) : ''}
+      <div class="small src">Kilde: ${p.source.map(s => SRC[s]).join(' + ')}</div></article>`;
   }
   function drawMarkers() {
     cluster.clearLayers(); markers.clear();
@@ -109,14 +136,14 @@
     if (openPopup) {
       // Selvstændig popup (ikke bundet til markøren), så klyngerne ikke lukker den, når kortet flytter sig
       const t = byId.get(id);
-      map.setView([t.lat, t.lon], Math.max(map.getZoom(), 16), { animate: false });
+      centerVisible([t.lat, t.lon], Math.max(map.getZoom(), 16));
       L.popup({ maxWidth: 300, autoPanPadding: [10, 10], offset: [0, -14] }).setLatLng([t.lat, t.lon]).setContent(popupHtml(t)).openOn(map);
     }
   }
   function pick(id) {
     S.pick = id; select(id, true);
     if (S.nav) return;
-    if (!S.me) { show('viewNear'); $('gpsStatus').textContent = ''; $('nearestCard').innerHTML = cardHtml(byId.get(id), null, 'Valgt toilet'); $('othersList').innerHTML = ''; $('othersTitle').hidden = true; }
+    if (!S.me) { show('viewNear'); $('gpsStatus').textContent = ''; $('nearestCard').innerHTML = cardHtml(byId.get(id), null, 'Valgt toilet'); fillRv(id); $('othersList').innerHTML = ''; $('othersTitle').hidden = true; }
     else showNear();
     $('panel').scrollTop = 0;
   }
@@ -136,13 +163,13 @@
     if (S.firstFix && !S.nav) {
       S.firstFix = false;
       const n = nearest(lat, lon, 1)[0];
-      if (n && n.d < 5000) map.fitBounds(L.latLngBounds([[lat, lon], [n.t.lat, n.t.lon]]).pad(0.5), { maxZoom: 17 });
-      else map.setView([lat, lon], 15);
+      if (n && n.d < 5000) map.fitBounds(L.latLngBounds([[lat, lon], [n.t.lat, n.t.lon]]).pad(0.3), Object.assign({ maxZoom: 17 }, fitPad()));
+      else centerVisible([lat, lon], 15);
     }
   }
   function startGPS() {
     if (!('geolocation' in navigator)) { gpsFail('Din telefon eller browser kan ikke finde din placering.'); return; }
-    show('viewNear'); $('gpsStatus').textContent = '📡 Finder din position …';
+    show('viewNear'); $('btnLocate').hidden = false; $('gpsStatus').textContent = 'Finder din position …';
     $('nearestCard').innerHTML = '<div class="empty">Vent et øjeblik – vi finder, hvor du er.</div>';
     if (S.watch !== null) navigator.geolocation.clearWatch(S.watch);
     S.watch = navigator.geolocation.watchPosition(
@@ -152,22 +179,22 @@
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
   }
   function gpsFail(msg, code) {
-    if (S.me && S.me.src === 'gps') { $('gpsStatus').textContent = '⚠️ GPS-signalet er svagt – viser seneste position.'; return; }
+    if (S.me && S.me.src === 'gps') { $('gpsStatus').textContent = 'GPS-signalet er svagt – viser seneste position.'; return; }
     show('viewNear'); tapMode('Tryk på kortet, der hvor du står.');
     if (S.me) return; // har allerede valgt på kortet
-    document.querySelector('#viewNear .filters').hidden = true; $('gpsStatus').textContent = '';
+    document.querySelector('.filters').hidden = true; $('gpsStatus').textContent = '';
     $('nearestCard').innerHTML = `<div class="card off-card" id="locOff">
-      <div class="label">📍 Placering er slået fra</div>
+      <div class="label">Placering er slået fra</div>
       <p class="off-text">${esc(msg)} Appen kan derfor ikke se, hvor du er.</p>
-      <button class="btn-big primary" data-help="1">❓ Hjælp: slå placering til</button>
-      <button class="btn-big secondary" data-retry="1">🔄 Prøv igen</button>
+      <button class="btn-big primary" data-help="1">Hjælp: slå placering til</button>
+      <button class="btn-big secondary" data-retry="1">Prøv igen</button>
       <p class="small">Eller tryk på kortet, der hvor du står.</p></div>`;
   }
   function retryGPS() { S.tap = false; hint(null); startGPS(); }
   function tapMode(msg) {
     S.tap = true; show('viewNear');
     hint(msg || 'Tryk på kortet, der hvor du står.');
-    $('gpsStatus').textContent = '👆 Tryk på kortet for at vælge, hvor du er.';
+    $('gpsStatus').textContent = 'Tryk på kortet for at vælge, hvor du er.';
     if (!S.me) { $('nearestCard').innerHTML = '<div class="empty">Tryk på kortet, der hvor du står. Så viser vi de nærmeste toiletter.</div>'; $('othersTitle').hidden = true; $('othersList').innerHTML = ''; }
   }
   map.on('click', e => {
@@ -179,10 +206,10 @@
   function show(v) { ['viewStart', 'viewNear', 'viewNav'].forEach(x => $(x).hidden = x !== v); }
   function showNear() {
     if (S.nav || !S.me) return;
-    show('viewNear'); document.querySelector('#viewNear .filters').hidden = false;
-    $('gpsStatus').textContent = S.me.src === 'gps'
-      ? `📍 Din position er fundet${S.me.acc ? ` (± ${Math.round(S.me.acc)} m)` : ''}.`
-      : '👆 Du har valgt din position på kortet. Tryk igen for at flytte den.';
+    show('viewNear'); document.querySelector('.filters').hidden = false;
+    $('gpsStatus').innerHTML = S.me.src === 'gps'
+      ? `<span class="dotlive"></span>Din position er fundet${S.me.acc ? ` (± ${Math.round(S.me.acc)} m)` : ''}`
+      : 'Du har valgt din position på kortet. Tryk igen for at flytte den.';
     const list = nearest(S.me.lat, S.me.lon, 5);
     if (!list.length) {
       $('nearestCard').innerHTML = '<div class="empty">Ingen toiletter passer til dine valg. Prøv at slå et filter fra.</div>';
@@ -191,16 +218,19 @@
     const [b, ...rest] = list;
     const pk = S.pick && byId.get(S.pick);
     $('nearestCard').innerHTML = pk
-      ? cardHtml(pk, dist(S.me, pk), 'Valgt toilet') + '<button class="btn-big ghost" data-unpick="1">← Vis nærmeste toilet igen</button>'
+      ? `<button class="back-link" data-unpick="1">${SV.back}Vis nærmeste toilet igen</button>` + cardHtml(pk, dist(S.me, pk), 'Valgt toilet')
       : cardHtml(b.t, b.d, 'Nærmeste toilet');
+    fillRv((pk || b.t).id);
     // Er det nærmeste lukket/ukendt? Så foreslå også det nærmeste, der er åbent nu
     if (!pk && st(b.t).state !== 'open') {
       const o = visible().filter(t => st(t).state === 'open').map(t => ({ t, d: dist(S.me, t) })).sort((x, y) => x.d - y.d)[0];
-      if (o && o.d < 5000) $('nearestCard').innerHTML += `<button class="btn-big secondary open-alt" data-show="${o.t.id}">🟢 Åbent nu: ${esc(title(o.t))}<br><span class="small">${fmtDist(o.d)} · ${fmtWalk(o.d)}</span></button>`;
+      if (o && o.d < 5000) $('nearestCard').insertAdjacentHTML('beforeend', `<button class="open-alt" data-show="${o.t.id}"><span class="os open"><i></i>Åbent nu</span><b>${esc(title(o.t))}</b><span class="small">${fmtDist(o.d)} · ${fmtWalk(o.d)}</span>${SV.chev}</button>`);
     }
     $('othersTitle').hidden = !rest.length;
-    $('othersList').innerHTML = rest.map(x => `<li><button data-show="${x.t.id}"><span class="o-name">${esc(title(x.t))}</span>
-      <span class="o-meta">${fmtDist(x.d)} · ${fmtWalk(x.d)} · ${esc(st(x.t).text)}${x.t.p.wheelchair ? ' · ♿' : ''}</span></button></li>`).join('');
+    const li = x => `<li><button data-show="${x.t.id}"><span class="o-ico">${SV.wc}</span><span class="o-main"><span class="o-name">${esc(title(x.t))}</span>
+      <span class="o-meta">${openLine(x.t)}<span class="mini-slot" data-mini="${x.t.id}">${window.Reviews ? Reviews.miniHtml(x.t.id) : ''}</span></span>${badges(x.t, true)}</span><span class="o-dist">${fmtDist(x.d)}<small>${walkMin(x.d)} min</small></span></button></li>`;
+    $('othersList').innerHTML = rest.map(li).join('');
+    if (window.Reviews && Reviews.enabled) Reviews.loadSummary(rest.map(x => x.t.id)).then(() => document.querySelectorAll('[data-mini]').forEach(el => { el.innerHTML = Reviews.miniHtml(+el.dataset.mini); }));
     if (!S.pick && S.selected !== b.t.id) select(b.t.id, false);
   }
   $('panel').addEventListener('click', e => {
@@ -209,7 +239,51 @@
     if (e.target.closest('[data-help]')) return helpDialog();
     if (e.target.closest('[data-retry]')) return retryGPS();
     if (e.target.closest('[data-unpick]')) { S.pick = null; map.closePopup(); showNear(); }
+    const ra = e.target.closest('[data-rate]'); if (ra) return rateDialog(+ra.dataset.rate);
+    const ph = e.target.closest('[data-photo]'); if (ph) return photoDialog(+ph.dataset.photo);
   });
+  /* ---------- Bedømmelser og billeder (kun når Supabase er sat op) ---------- */
+  function fillRv(id) { if (window.Reviews && Reviews.enabled) Reviews.fill($('nearestCard'), id); }
+  function rateDialog(id) {
+    const t = byId.get(id); let v = 0;
+    dialog(`<h2>Hvor rent var der?</h2><p class="small">${esc(title(t))}</p>
+      <div class="star-pick" role="radiogroup" aria-label="Renlighed fra 1 til 5 stjerner">${[1, 2, 3, 4, 5].map(i => `<button type="button" role="radio" aria-checked="false" data-star="${i}" aria-label="${i} ${i === 1 ? 'stjerne' : 'stjerner'}">${Reviews.STAR}</button>`).join('')}</div>
+      <div class="star-txt" id="starTxt">Vælg 1–5 stjerner</div>
+      <label class="fld">Kort kommentar (valgfri)<textarea id="rvComment" maxlength="280" rows="3" placeholder="Fx: Rent og pænt, men intet papir"></textarea></label>
+      <p class="small">Kommentarer vises først, når de er godkendt. Skriv ikke navne eller andre personoplysninger.</p>`,
+      [['Send bedømmelse', async () => {
+        if (!v) { toastMsg('Vælg først antal stjerner.'); return rateDialog(id); }
+        try { const r = await Reviews.rate(id, v, $('rvComment') ? $('rvComment').value : ''); toastMsg(r.moderated ? 'Tak! Stjernerne tæller med det samme. Kommentaren vises, når den er godkendt.' : 'Tak for din bedømmelse!'); fillRv(id); }
+        catch (e) { toastMsg(Reviews.why(e)); }
+      }], ['Annullér', null]]);
+    const lbl = ['', 'Meget beskidt', 'Beskidt', 'Okay', 'Rent', 'Meget rent'];
+    $('dlgBody').querySelectorAll('[data-star]').forEach(b => b.addEventListener('click', () => {
+      v = +b.dataset.star; $('dlgBody').querySelectorAll('[data-star]').forEach(x => { const on = +x.dataset.star <= v; x.classList.toggle('on', on); x.setAttribute('aria-checked', +x.dataset.star === v); });
+      $('starTxt').textContent = v + ' af 5 – ' + lbl[v];
+    }));
+  }
+  function photoDialog(id) {
+    const t = byId.get(id);
+    dialog(`<h2>Del et billede af toilettet</h2><p class="small">${esc(title(t))}</p>
+      <label class="btn-big secondary file-btn">Vælg eller tag et billede<input type="file" id="rvFile" accept="image/*" hidden></label>
+      <div id="rvPrev" class="rv-prev"></div>
+      <ul class="small rv-rules"><li>Billedet bliver mindre, og <b>placering og andre skjulte oplysninger (EXIF/GPS) fjernes</b> på din telefon, før det sendes.</li><li>Det vises først, når det er godkendt.</li><li>Ingen personer på billedet, tak.</li></ul>`,
+      [['Send billede', async () => {
+        const f = S._file; if (!f) { toastMsg('Vælg først et billede.'); return photoDialog(id); }
+        try { await Reviews.uploadPhoto(id, f); toastMsg('Tak! Billedet vises, når det er godkendt.'); }
+        catch (e) { toastMsg(e.message && !e.status ? e.message : Reviews.why(e)); }
+        S._file = null;
+      }], ['Annullér', () => { S._file = null; }]]);
+    $('rvFile').addEventListener('change', e => {
+      const f = e.target.files[0]; S._file = f || null; if (!f) return;
+      Reviews.processImage(f).then(r => { $('rvPrev').innerHTML = `<img src="${URL.createObjectURL(r.blob)}" alt="Forhåndsvisning"><span class="small">${r.w}×${r.h} px · ${Math.round(r.blob.size / 1024)} kB · uden placering</span>`; })
+        .catch(err => { $('rvPrev').textContent = err.message; S._file = null; });
+    });
+  }
+  function toastMsg(m) {
+    let el = $('toast'); if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+    el.textContent = m; el.classList.add('on'); clearTimeout(S._tt); S._tt = setTimeout(() => el.classList.remove('on'), 4200);
+  }
   document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
     const k = c.dataset.filter; S.filters.has(k) ? S.filters.delete(k) : S.filters.add(k);
     c.setAttribute('aria-pressed', S.filters.has(k)); drawMarkers(); S.pick = null; showNear();
@@ -223,9 +297,9 @@
     map.closePopup(); S.nav = { t, route: null, routeFrom: null }; select(id, false);
     show('viewNav'); $('panel').scrollTop = 0; $('navName').textContent = 'Til: ' + title(t);
     $('lnkGoogle').href = gmaps(t); $('lnkApple').href = amaps(t);
-    $('btnRoute').hidden = false; $('btnRoute').textContent = '🗺️ Tegn ruten ad gaderne';
+    $('btnRoute').hidden = false; $('btnRoute').textContent = 'Tegn ruten ad gaderne';
     askCompass();
-    map.fitBounds(L.latLngBounds([[S.me.lat, S.me.lon], [t.lat, t.lon]]).pad(0.35), { maxZoom: 18 });
+    setTimeout(() => map.fitBounds(L.latLngBounds([[S.me.lat, S.me.lon], [t.lat, t.lon]]).pad(0.2), Object.assign({ maxZoom: 18 }, fitPad())), 0);
     if (S.routeOK) fetchRoute();
     updateNav();
   }
@@ -248,10 +322,10 @@
       const r = remainingOnRoute(N.route); shown = r.sum; isRoute = true; aim = r.next;
       if (r.off > 60 && S.routeOK && (!N.routeFrom || dist(N.routeFrom, S.me) > 40)) fetchRoute();
     }
-    if (!navLine) navLine = L.polyline([], { color: '#0b5394', weight: 5, dashArray: '8 10', opacity: N.route ? 0 : .9 }).addTo(map);
+    if (!navLine) navLine = L.polyline([], { color: '#1652f0', weight: 5, dashArray: '8 10', opacity: N.route ? 0 : .9 }).addTo(map);
     navLine.setLatLngs([[S.me.lat, S.me.lon], [t.lat, t.lon]]).setStyle({ opacity: N.route ? 0 : .9 });
     if (straight < 25) {
-      $('navDist').innerHTML = '<span class="arrived">Du er fremme! 🎉</span>'; $('navTime').textContent = ''; $('navDir').textContent = 'Toilettet er lige i nærheden.';
+      $('navDist').innerHTML = '<span class="arrived">Du er fremme!</span>'; $('navTime').textContent = ''; $('navDir').textContent = 'Toilettet er lige i nærheden.';
       $('navArrow').style.transform = 'rotate(-90deg)'; return;
     }
     const b = bearing(S.me, aim.lat !== undefined ? aim : t);
@@ -297,7 +371,7 @@
   async function fetchRoute() {
     const N = S.nav; if (!N || !S.me) return;
     N.routeFrom = { lat: S.me.lat, lon: S.me.lon };
-    $('btnRoute').textContent = '⏳ Henter rute …';
+    $('btnRoute').textContent = 'Henter rute …';
     try {
       const url = `${ROUTER}${S.me.lon.toFixed(5)},${S.me.lat.toFixed(5)};${N.t.lon},${N.t.lat}?overview=full&geometries=geojson`;
       const r = await fetch(url, { cache: 'no-store', referrerPolicy: 'no-referrer' });
@@ -307,11 +381,11 @@
       N.route = { coords: j.routes[0].geometry.coordinates.map(c => ({ lon: c[0], lat: c[1] })), distance: j.routes[0].distance };
       N.route.coords.push({ lat: N.t.lat, lon: N.t.lon });
       if (routeLine) map.removeLayer(routeLine);
-      routeLine = L.polyline(N.route.coords.map(c => [c.lat, c.lon]), { color: '#1a73e8', weight: 7, opacity: .85 }).addTo(map);
+      routeLine = L.polyline(N.route.coords.map(c => [c.lat, c.lon]), { color: '#1652f0', weight: 8, opacity: .9 }).addTo(map);
       $('btnRoute').hidden = true;
       updateNav();
     } catch (e) {
-      $('btnRoute').textContent = '🗺️ Prøv igen at tegne ruten';
+      $('btnRoute').textContent = 'Prøv igen at tegne ruten';
       $('navNote').textContent = 'Ruten kunne ikke hentes (måske ingen internetforbindelse). Følg pilen eller brug Google Maps / Apple Kort.';
     }
   }
@@ -369,7 +443,7 @@
       <div class="tabpanel" data-panel="ios" ${tab === 'ios' ? '' : 'hidden'}>${HELP_IOS}</div>
       <div class="tabpanel" data-panel="and" ${tab === 'and' ? '' : 'hidden'}>${HELP_AND}</div>
       <p class="small">Din placering bliver kun på din telefon.</p>`,
-      [['🔄 Prøv igen', retryGPS], ['Luk', null]]);
+      [['Prøv igen', retryGPS], ['Luk', null]]);
     d.classList.add('help');
   }
   $('dlgBody').addEventListener('click', e => {
@@ -385,15 +459,18 @@
   const M = DATA.metadata, gen = new Date(M.generated).toLocaleDateString('da-DK', { day: 'numeric', month: 'long', year: 'numeric' });
   $('btnInfo').addEventListener('click', () => dialog(`<h2>Om appen</h2>
     <p>Kortet viser ${M.counts.total} toiletter i København og på Frederiksberg. Data er fra ${gen}.</p>
-    <p><b>Farver:</b> 🟢 grøn = åbent nu, ⚫ grå = lukket nu, 🔵 blå = åbningstid ukendt.</p>
+    <p><b>Farver på kortet:</b> grøn = åbent nu, grå = lukket nu, blå = åbningstid ukendt.</p>
+    <p><b>Handicapvenligt:</b> "Ikke angivet som handicapvenligt" betyder, at kommunen ikke har registreret toilettet som handicapvenligt – det kan godt være tilgængeligt. "Ukendt" betyder, at vi ikke har oplysningen.</p>
+    <p><b>Bedømmelser og billeder:</b> ${window.Reviews && Reviews.enabled ? 'Stjerner tæller med det samme. Kommentarer og billeder vises først, når de er godkendt. Billeder får fjernet placering (EXIF/GPS) på din telefon.' : 'kommer snart.'}</p>
     <p><b>Din position</b> bliver på din telefon. Appen har ingen konti og ingen sporing. Kortbillederne hentes fra OpenStreetMap. Kun hvis du selv vælger "Tegn ruten ad gaderne", sendes start og mål til en rute-tjeneste.</p>
-    <button type="button" class="btn-big secondary" data-help="1">❓ Hjælp: slå placering til</button>
+    <button type="button" class="btn-big secondary" data-help="1">Hjælp: slå placering til</button>
     <p><b>Pas på:</b> Åbningstider kan være forkerte, og nogle toiletter kan være lukkede eller mangle. Tiderne for kommunens toiletter er omtrentlige.</p>
     <p class="small"><b>Kilder:</b> Københavns Kommune (åbne data, CC0) · Frederiksberg Kommune (CC BY 4.0) · © OpenStreetMap-bidragydere (ODbL 1.0). Kort: © OpenStreetMap. Rute: OSRM / FOSSGIS. Kortprogram: Leaflet.</p>`));
 
   /* ---------- Start ---------- */
   $('btnFind').addEventListener('click', startGPS);
   $('btnTap').addEventListener('click', () => tapMode());
+  $('btnLocate').addEventListener('click', () => { if (S.me && S.me.src === 'gps') map.setView([S.me.lat, S.me.lon], Math.max(map.getZoom(), 16)); else retryGPS(); });
   drawMarkers();
   // Har brugeren før givet lov? Så start GPS med det samme.
   if (navigator.permissions && navigator.permissions.query) {
@@ -402,5 +479,5 @@
   setInterval(() => { if (!S.nav) { drawMarkers(); showNear(); } }, 5 * 60 * 1000); // åbent/lukket ændrer sig med tiden
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
 
-  window.__app = { helpDialog, retryGPS, S, F, nearest, dist, visible, startNav, stopNav, setMe, fmtWalk, map, markers };
+  window.__app = { access, rateDialog, photoDialog, helpDialog, retryGPS, S, F, nearest, dist, visible, startNav, stopNav, setMe, fmtWalk, map, markers };
 })();
